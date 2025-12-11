@@ -37,37 +37,35 @@ prepare_system() {
     else
         sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
     fi
+
+    # Активация Google BBR
+    if ! grep -q "net.core.default_qdisc=fq" /etc/sysctl.conf; then
+        echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+    fi
+    if ! grep -q "net.ipv4.tcp_congestion_control=bbr" /etc/sysctl.conf; then
+        echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+    fi
     sysctl -p > /dev/null
 
-    # Установка iptables-persistent
+    # Установка зависимостей
     export DEBIAN_FRONTEND=noninteractive
     if ! dpkg -s iptables-persistent >/dev/null 2>&1; then
         apt-get update -y > /dev/null
-        apt-get install -y iptables-persistent netfilter-persistent > /dev/null
+        apt-get install -y iptables-persistent netfilter-persistent qrencode > /dev/null
     fi
 }
 
-# --- ПРОМО БЛОК (ЗАПУСКАЕТСЯ ПЕРВЫМ) ---
+# --- ПРОМО БЛОК ---
 show_promo() {
     local PROMO_LINK="https://vk.cc/ct29NQ"
 
-    # Проверяем наличие qrencode
-    if ! command -v qrencode &> /dev/null; then
-        echo -e "${YELLOW}[*] Подготовка компонентов...${NC}"
-        export DEBIAN_FRONTEND=noninteractive
-        apt-get update -y > /dev/null
-        apt-get install -y qrencode > /dev/null
-    fi
-
     clear
     echo ""
-    # Обновленный заголовок под размер текста
     echo -e "${MAGENTA}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${MAGENTA}║         ХОСТИНГ, КОТОРЫЙ РАБОТАЕТ СО СКИДКОЙ ДО -60%         ║${NC}"
     echo -e "${MAGENTA}╚══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
-    # 1. Ссылки (Эффект печати)
     echo -ne "${CYAN}"
     type_text "  >>> $PROMO_LINK"
     type_text "  >>> $PROMO_LINK"
@@ -75,26 +73,23 @@ show_promo() {
     echo -ne "${NC}"
 
     echo ""
-    # 2. Орнамент-разделитель
     echo -e "${MAGENTA}❖ •••••••••••••••••• PROMO CODES ••••••••••••••••••• ❖${NC}"
     echo ""
 
-    # 3. Таблица промокодов
     printf "  ${YELLOW}%-12s${NC} : ${WHITE}%s${NC}\n" "OFF60" "60% скидка на первый месяц"
     echo -e "${BLUE}  . . . . . . . . . . . . . . . . . . . . . . . . . . ${NC}"
     
     printf "  ${YELLOW}%-12s${NC} : ${WHITE}%s${NC}\n" "antenka20" "Буст 20% + 3% (при оплате за 3 мес)"
     echo -e "${BLUE}  . . . . . . . . . . . . . . . . . . . . . . . . . . ${NC}"
-
+    
     printf "  ${YELLOW}%-12s${NC} : ${WHITE}%s${NC}\n" "antenka6" "Буст 15% + 5% (при оплате за 6 мес)"
     echo -e "${BLUE}  . . . . . . . . . . . . . . . . . . . . . . . . . . ${NC}"
-	
+    
     printf "  ${YELLOW}%-12s${NC} : ${WHITE}%s${NC}\n" "antenka12" "Буст 5% + 5% (при оплате за 12 мес)"
 
     echo ""
     echo -e "${MAGENTA}❖ •••••••••••••••••••••••••••••••••••••••••••••••••• ❖${NC}"
 
-    # 4. QR Код
     echo -e "\n${YELLOW}Генерация QR-кода... (5 сек)${NC}"
     for i in {5..1}; do
         echo -ne "$i..."
@@ -103,14 +98,44 @@ show_promo() {
     echo ""
 
     echo -e "\n${WHITE}" 
-    qrencode -t ANSIUTF8 "$PROMO_LINK"
+    if command -v qrencode &> /dev/null; then
+        qrencode -t ANSIUTF8 "$PROMO_LINK"
+    else
+        echo "QR-код не загрузился, используйте ссылку выше."
+    fi
     echo -e "${NC}"
     
     echo -e "${GREEN}Сканируйте камерой телефона!${NC}"
     echo ""
-    
-    # Новая надпись при ожидании
     read -p "Нажмите enter для настройки каскадного скрипта..."
+}
+
+# --- ИНСТРУКЦИЯ (ТЕКСТ ВНУТРИ КОДА) ---
+show_instructions() {
+    clear
+    echo -e "${MAGENTA}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${MAGENTA}║             📚 ИНСТРУКЦИЯ: КАК НАСТРОИТЬ КАСКАД              ║${NC}"
+    echo -e "${MAGENTA}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${CYAN}ШАГ 1: Подготовка${NC}"
+    echo -e "У вас должны быть данные от зарубежного VPN (WireGuard/VLESS):"
+    echo -e " - ${YELLOW}IP адрес${NC} (зарубежный)"
+    echo -e " - ${YELLOW}Порт${NC} (на котором работает VPN)"
+    echo ""
+    echo -e "${CYAN}ШАГ 2: Настройка этого сервера${NC}"
+    echo -e "1. В меню выберите пункт ${GREEN}1${NC} (для UDP/VPN) или ${GREEN}2${NC} (для TCP/Proxy)."
+    echo -e "2. Введите ${YELLOW}IP${NC} и ${YELLOW}Порт${NC} зарубежного сервера."
+    echo -e "3. Скрипт создаст 'мост' через этот VPS."
+    echo ""
+    echo -e "${CYAN}ШАГ 3: Настройка Клиента (Важно!)${NC}"
+    echo -e "1. Откройте приложение (AmneziaWG / WireGuard / v2rayNG)."
+    echo -e "2. В настройках соединения найдите поле ${YELLOW}Endpoint / Адрес сервера${NC}."
+    echo -e "3. Замените зарубежный IP на ${GREEN}IP ЭТОГО СЕРВЕРА${NC}."
+    echo -e "4. Порт оставьте прежним."
+    echo ""
+    echo -e "${GREEN}Готово! Теперь трафик идет: Клиент -> Этот Сервер -> Зарубеж.${NC}"
+    echo ""
+    read -p "Нажмите Enter, чтобы вернуться в меню..."
 }
 
 # --- ЯДРО НАСТРОЙКИ ---
@@ -141,13 +166,11 @@ configure_rule() {
 
     echo -e "${YELLOW}[*] Применение правил...${NC}"
 
-    # Очистка
     iptables -t nat -D PREROUTING -p $PROTO --dport "$PORT" -j DNAT --to-destination "$TARGET_IP:$PORT" 2>/dev/null
     iptables -D INPUT -p $PROTO --dport "$PORT" -j ACCEPT 2>/dev/null
     iptables -D FORWARD -p $PROTO -d "$TARGET_IP" --dport "$PORT" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT 2>/dev/null
     iptables -D FORWARD -p $PROTO -s "$TARGET_IP" --sport "$PORT" -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null
 
-    # Применение
     iptables -A INPUT -p $PROTO --dport "$PORT" -j ACCEPT
     iptables -t nat -A PREROUTING -p $PROTO --dport "$PORT" -j DNAT --to-destination "$TARGET_IP:$PORT"
     
@@ -158,7 +181,6 @@ configure_rule() {
     iptables -A FORWARD -p $PROTO -d "$TARGET_IP" --dport "$PORT" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
     iptables -A FORWARD -p $PROTO -s "$TARGET_IP" --sport "$PORT" -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-    # UFW Fix
     if command -v ufw &> /dev/null && ufw status | grep -q "Status: active"; then
         ufw allow "$PORT"/$PROTO >/dev/null
         sed -i 's/DEFAULT_FORWARD_POLICY="DROP"/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw
@@ -186,10 +208,48 @@ list_active_rules() {
     read -p "Нажмите Enter..."
 }
 
+# --- УДАЛЕНИЕ ОДНОГО ПРАВИЛА ---
+delete_single_rule() {
+    echo -e "\n${CYAN}--- Удаление правила ---${NC}"
+    declare -a RULES_LIST
+    local i=1
+    while read -r line; do
+        l_port=$(echo "$line" | grep -oP '(?<=--dport )\d+')
+        l_proto=$(echo "$line" | grep -oP '(?<=-p )\w+')
+        l_dest=$(echo "$line" | grep -oP '(?<=--to-destination )[\d\.:]+')
+        if [[ -n "$l_port" ]]; then
+            RULES_LIST[$i]="$l_port:$l_proto:$l_dest"
+            echo -e "${YELLOW}[$i]${NC} Порт: $l_port ($l_proto) -> $l_dest"
+            ((i++))
+        fi
+    done < <(iptables -t nat -S PREROUTING | grep "DNAT")
+
+    if [ ${#RULES_LIST[@]} -eq 0 ]; then
+        echo -e "${RED}Нет активных правил.${NC}"
+        read -p "Нажмите Enter..."
+        return
+    fi
+
+    echo ""
+    read -p "Номер правила для удаления (0 отмена): " rule_num
+    if [[ "$rule_num" == "0" || -z "${RULES_LIST[$rule_num]}" ]]; then return; fi
+
+    IFS=':' read -r d_port d_proto d_dest <<< "${RULES_LIST[$rule_num]}"
+    
+    iptables -t nat -D PREROUTING -p "$d_proto" --dport "$d_port" -j DNAT --to-destination "$d_dest" 2>/dev/null
+    iptables -D INPUT -p "$d_proto" --dport "$d_port" -j ACCEPT 2>/dev/null
+    iptables -D FORWARD -p "$d_proto" -d "${d_dest%:*}" --dport "$d_port" -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT 2>/dev/null
+    iptables -D FORWARD -p "$d_proto" -s "${d_dest%:*}" --sport "$d_port" -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null
+    
+    netfilter-persistent save > /dev/null
+    echo -e "${GREEN}[OK] Удалено.${NC}"
+    read -p "Нажмите Enter..."
+}
+
 # --- ПОЛНАЯ ОЧИСТКА ---
 flush_rules() {
     echo -e "\n${RED}!!! ВНИМАНИЕ !!!${NC}"
-    echo "Это удалит ВСЕ правила NAT и сбросит iptables."
+    echo "Сброс ВСЕХ настроек iptables."
     read -p "Вы уверены? (y/n): " confirm
     if [[ "$confirm" == "y" ]]; then
         iptables -P INPUT ACCEPT
@@ -212,15 +272,25 @@ show_menu() {
         echo -e "${MAGENTA}"
         echo "******************************************************"
         echo "       anten-ka канал представляет..."
-        echo "       TRAFFIC MANAGER & TOOLS"
+        echo "       YouTube: https://www.youtube.com/@antenkaru"
         echo "******************************************************"
         echo -e "${NC}"
+        
+        echo -e "${YELLOW}Получить инструкции:${NC}"
+        echo -e "1 способ: ${BLUE}https://boosty.to/anten-ka${NC}"
+        echo -e "2 способ: ${BLUE}https://antenka.taplink.ws${NC}"
+        echo -e "3 способ: ${BLUE}https://web.tribute.tg/p/cJu${NC}"
+        echo ""
+        echo -e "${GREEN}💰 Задонатить каналу и автору:${NC} https://pay.cloudtips.ru/p/7410814f"
+        echo -e "------------------------------------------------------"
         
         echo -e "1) Настроить ${CYAN}AmneziaWG / WireGuard${NC} (UDP)"
         echo -e "2) Настроить ${CYAN}VLESS / XRay${NC} (TCP)"
         echo -e "3) Посмотреть активные правила"
-        echo -e "4) Удалить все правила (Сброс)"
-        echo -e "5) ${YELLOW}Показать PROMO${NC}"
+        echo -e "4) ${RED}Удалить одно правило${NC}"
+        echo -e "5) ${RED}Сбросить ВСЕ настройки${NC}"
+        echo -e "6) ${YELLOW}Показать PROMO${NC}"
+        echo -e "7) ${MAGENTA}📚 ИНСТРУКЦИЯ (Как настроить)${NC}" 
         echo -e "0) Выход"
         echo -e "------------------------------------------------------"
         read -p "Ваш выбор: " choice
@@ -229,8 +299,10 @@ show_menu() {
             1) configure_rule "udp" "AmneziaWG" ;;
             2) configure_rule "tcp" "VLESS" ;;
             3) list_active_rules ;;
-            4) flush_rules ;;
-            5) show_promo ;;
+            4) delete_single_rule ;;
+            5) flush_rules ;;
+            6) show_promo ;;
+            7) show_instructions ;;
             0) exit 0 ;;
             *) ;;
         esac
@@ -240,9 +312,5 @@ show_menu() {
 # --- ЗАПУСК ---
 check_root
 prepare_system
-
-# СНАЧАЛА ПОКАЗЫВАЕМ РЕКЛАМУ
 show_promo
-
-# ПОТОМ МЕНЮ
 show_menu
