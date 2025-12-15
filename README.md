@@ -33,4 +33,4 @@ Kaskad for AWG \ VLESS
 Подключитесь к вашему VPS (Ubuntu/Debian) и выполните одну команду:
 
 ```bash
-wget -O install.sh https://raw.githubusercontent.com/anten-ka/kaskad/main/install.sh && chmod +x install.sh && ./install.sh
+wget -O install.sh https://raw.githubusercontent.com/kamenevav/kaskad/main/install.sh && chmod +x install.sh && ./install.sh
